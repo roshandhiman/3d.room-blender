@@ -116,7 +116,7 @@ def add_box_uvs(obj, projection='Z'):
     bm.to_mesh(mesh)
     bm.free()
 
-# ----------------- PBR Materials -----------------
+# ----------------- High-End PBR Materials -----------------
 def create_pbr_mat(name, base_color, roughness=0.5, metallic=0.0, specular=0.5, emission=None, emission_strength=1.0, is_glass=False):
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True
@@ -182,9 +182,9 @@ def create_luxury_walnut_floor():
     
     ramp = nodes.new(type="ShaderNodeValToRGB")
     ramp.color_ramp.elements[0].position = 0.15
-    ramp.color_ramp.elements[0].color = (0.14, 0.07, 0.035, 1.0) # Deep dark walnut
+    ramp.color_ramp.elements[0].color = (0.14, 0.07, 0.035, 1.0)
     ramp.color_ramp.elements[1].position = 0.85
-    ramp.color_ramp.elements[1].color = (0.28, 0.15, 0.08, 1.0) # Rich warm cognac wood
+    ramp.color_ramp.elements[1].color = (0.28, 0.15, 0.08, 1.0)
     
     bump = nodes.new(type="ShaderNodeBump")
     bump.inputs['Strength'].default_value = 0.15
@@ -198,20 +198,89 @@ def create_luxury_walnut_floor():
     links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     return mat
 
-# ----------------- Screen Texture Generator -----------------
+def create_architectural_exterior_wood():
+    mat = bpy.data.materials.new(name="ArchitecturalWoodFacade")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    nodes.clear()
+    mat.diffuse_color = (0.16, 0.10, 0.06, 1.0)
+    
+    out = nodes.new(type="ShaderNodeOutputMaterial")
+    bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
+    bsdf.inputs['Roughness'].default_value = 0.45
+    
+    coord = nodes.new(type="ShaderNodeTexCoord")
+    wave = nodes.new(type="ShaderNodeTexWave")
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.inputs['Scale'].default_value = 3.5
+    wave.inputs['Distortion'].default_value = 0.2
+    
+    ramp = nodes.new(type="ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.1
+    ramp.color_ramp.elements[0].color = (0.08, 0.05, 0.03, 1.0) # Shadow gap
+    ramp.color_ramp.elements[1].position = 0.25
+    ramp.color_ramp.elements[1].color = (0.20, 0.12, 0.07, 1.0) # Rich wood slat
+    
+    bump = nodes.new(type="ShaderNodeBump")
+    bump.inputs['Strength'].default_value = 0.35
+    
+    links.new(coord.outputs['Object'], wave.inputs['Vector'])
+    links.new(wave.outputs['Color'], ramp.inputs['Fac'])
+    links.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
+    links.new(wave.outputs['Color'], bump.inputs['Height'])
+    links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+    links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
+    return mat
+
+def create_board_formed_concrete():
+    mat = bpy.data.materials.new(name="ArchitecturalConcrete")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    nodes.clear()
+    mat.diffuse_color = (0.55, 0.54, 0.52, 1.0)
+    
+    out = nodes.new(type="ShaderNodeOutputMaterial")
+    bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
+    bsdf.inputs['Roughness'].default_value = 0.75
+    
+    coord = nodes.new(type="ShaderNodeTexCoord")
+    noise = nodes.new(type="ShaderNodeTexNoise")
+    noise.inputs['Scale'].default_value = 16.0
+    noise.inputs['Detail'].default_value = 4.0
+    
+    ramp = nodes.new(type="ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.2
+    ramp.color_ramp.elements[0].color = (0.48, 0.47, 0.45, 1.0)
+    ramp.color_ramp.elements[1].position = 0.8
+    ramp.color_ramp.elements[1].color = (0.62, 0.61, 0.58, 1.0)
+    
+    bump = nodes.new(type="ShaderNodeBump")
+    bump.inputs['Strength'].default_value = 0.15
+    
+    links.new(coord.outputs['Object'], noise.inputs['Vector'])
+    links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+    links.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
+    links.new(noise.outputs['Fac'], bump.inputs['Height'])
+    links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+    links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
+    return mat
+
+# ----------------- Textures -----------------
 def generate_hd_screen_texture():
     W, H = 1920, 800
     arr = np.zeros((H, W, 4), dtype=np.float32)
     arr[:, :, 3] = 1.0
     
-    # 1. Dark futuristic background with gradient
     y_coords, x_coords = np.ogrid[:H, :W]
     grad_bg = (x_coords / W) * 0.03 + (y_coords / H) * 0.02
     arr[:, :, 0] = 0.02 + grad_bg * 0.2
     arr[:, :, 1] = 0.03 + grad_bg * 0.5
     arr[:, :, 2] = 0.06 + grad_bg * 0.9
     
-    # 2. Top Menu Bar (H - 35 to H)
+    # Top Menu Bar
     arr[H-35:H, :, 0] = 0.08
     arr[H-35:H, :, 1] = 0.09
     arr[H-35:H, :, 2] = 0.12
@@ -221,7 +290,7 @@ def generate_hd_screen_texture():
     arr[H-22:H-14, W-140:W-60, :] = [0.85, 0.90, 0.95, 1.0]
     arr[H-22:H-14, W-50:W-30, :] = [0.2, 0.85, 0.35, 1.0]
     
-    # 3. Main Window: Modern VS Code IDE (left: 40 to 1280, bottom: 40 to H-45)
+    # VS Code IDE Window
     win_l, win_r = 40, 1280
     win_b, win_t = 40, H - 45
     arr[win_b:win_t, win_l:win_r, 0] = 0.04
@@ -281,7 +350,7 @@ def generate_hd_screen_texture():
     arr[win_b+50:win_b+60, ed_l+20:ed_l+320, :] = [0.95, 0.85, 0.2, 1.0]
     arr[win_b+25:win_b+35, ed_l+20:ed_l+40, :] = [0.0, 0.85, 1.0, 1.0]
     
-    # 4. Right Side Panel: Music Player & System Dashboard
+    # Right Side Music & Performance Panels
     dash_l, dash_r = 1310, W - 40
     arr[H-360:H-50, dash_l:dash_r, 0] = 0.06
     arr[H-360:H-50, dash_l:dash_r, 1] = 0.07
@@ -339,9 +408,8 @@ def generate_hd_screen_texture():
     links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     return mat
 
-# ----------------- Basketball Court Texture Generator -----------------
 def generate_hd_court_texture():
-    W, H = 2048, 2048
+    W, H = 1024, 1024
     arr = np.zeros((H, W, 4), dtype=np.float32)
     arr[:, :, 3] = 1.0
     
@@ -350,8 +418,8 @@ def generate_hd_court_texture():
     arr[:, :, 1] = 0.25
     arr[:, :, 2] = 0.16
     
-    # Inner court: Cobalt Blue
-    border_px = 120
+    # Inner court: Vibrant Ocean Blue
+    border_px = 60
     arr[border_px:H-border_px, border_px:W-border_px, 0] = 0.06
     arr[border_px:H-border_px, border_px:W-border_px, 1] = 0.22
     arr[border_px:H-border_px, border_px:W-border_px, 2] = 0.58
@@ -367,7 +435,7 @@ def generate_hd_court_texture():
     
     y_idx, x_idx = np.ogrid[:H, :W]
     line_color = np.array([0.96, 0.97, 0.98, 1.0], dtype=np.float32)
-    line_thickness = 9
+    line_thickness = 5
     
     mask_baseline = (y_idx >= (key_t - line_thickness)) & (y_idx <= key_t) & (x_idx >= border_px) & (x_idx <= W - border_px)
     mask_halfline = (y_idx >= border_px) & (y_idx <= (border_px + line_thickness)) & (x_idx >= border_px) & (x_idx <= W - border_px)
@@ -384,10 +452,10 @@ def generate_hd_court_texture():
     cy_ft = key_b
     r_ft = (key_r - key_l) / 2.0
     dist_ft = np.sqrt((x_idx - cx)**2 + (y_idx - cy_ft)**2)
-    mask_ft_circle = (np.abs(dist_ft - r_ft) <= line_thickness / 2.0) & (y_idx <= key_b + 20)
+    mask_ft_circle = (np.abs(dist_ft - r_ft) <= line_thickness / 2.0) & (y_idx <= key_b + 12)
     angle_ft = np.arctan2(y_idx - cy_ft, x_idx - cx)
     dash_mask = (np.sin(angle_ft * 12) > 0)
-    mask_ft_dashed = (np.abs(dist_ft - r_ft) <= line_thickness / 2.0) & (y_idx > key_b + 20) & dash_mask
+    mask_ft_dashed = (np.abs(dist_ft - r_ft) <= line_thickness / 2.0) & (y_idx > key_b + 12) & dash_mask
     arr[mask_ft_circle | mask_ft_dashed] = line_color
     
     hoop_cy = H - border_px - int(H * 0.08)
@@ -402,11 +470,11 @@ def generate_hd_court_texture():
     mask_3pt_str_r = (x_idx >= c_right - line_thickness) & (x_idx <= c_right) & (y_idx >= hoop_cy) & (y_idx <= key_t)
     arr[mask_3pt_arc | mask_3pt_str_l | mask_3pt_str_r] = line_color
     
-    r_ra = 120.0
+    r_ra = 65.0
     mask_ra = (np.abs(dist_hoop - r_ra) <= line_thickness / 2.0) & (y_idx <= hoop_cy)
     arr[mask_ra] = line_color
     
-    r_center = 320.0
+    r_center = 160.0
     dist_center = np.sqrt((x_idx - cx)**2 + (y_idx - border_px)**2)
     mask_center = (np.abs(dist_center - r_center) <= line_thickness / 2.0) & (y_idx >= border_px)
     arr[mask_center] = line_color
@@ -441,7 +509,6 @@ def generate_hd_court_texture():
     links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     return mat
 
-# ----------------- Drawing Board Artwork Texture Generator -----------------
 def generate_hd_canvas_texture():
     W, H = 1024, 1024
     arr = np.zeros((H, W, 4), dtype=np.float32)
@@ -535,72 +602,251 @@ def append_objects(filepath, obj_names):
             appended.append(obj)
     return appended
 
-# ----------------- User 3D Trees from trees_3d.zip -----------------
-def import_and_setup_user_trees(tree_instances):
-    obj_path = os.path.join(base_dir, "trees_3d/trees9.obj")
-    if not os.path.exists(obj_path):
-        print(f"User tree model not found: {obj_path}")
-        return []
-        
-    bpy.ops.wm.obj_import(filepath=obj_path)
-    imported = {o.name: o for o in bpy.context.selected_objects}
+# ----------------- Elite Architectural Botanical Trees -----------------
+# Creates clean, photoreal volumetric trees (not paper cardboard billboard cards!)
+def create_architectural_tree(name, loc, scale=1.0, tree_type='OAK', seed=42):
+    random.seed(seed)
     
-    templates = {}
-    for name, obj in imported.items():
-        verts = [v.co for v in obj.data.vertices]
-        min_x = min(v.x for v in verts)
-        max_x = max(v.x for v in verts)
-        min_y = min(v.y for v in verts)
-        max_y = max(v.y for v in verts)
-        min_z = min(v.z for v in verts)
-        max_z = max(v.z for v in verts)
+    # 1. Materials
+    mat_bark = bpy.data.materials.get("EliteArchBark")
+    if not mat_bark:
+        mat_bark = bpy.data.materials.new("EliteArchBark")
+        mat_bark.use_nodes = True
+        nodes = mat_bark.node_tree.nodes
+        links = mat_bark.node_tree.links
+        nodes.clear()
         
-        # In OBJ Y is height: transform so height -> Blender Z, base at Z=0
-        for v in obj.data.vertices:
-            ox, oy, oz = v.co.x, v.co.y, v.co.z
-            v.co.x = ox - (min_x + max_x) / 2.0
-            v.co.y = -(oz - (min_z + max_z) / 2.0)
-            v.co.z = oy - min_y
+        out = nodes.new("ShaderNodeOutputMaterial")
+        bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf.inputs['Roughness'].default_value = 0.90
+        
+        tex_coord = nodes.new("ShaderNodeTexCoord")
+        noise = nodes.new("ShaderNodeTexNoise")
+        noise.inputs['Scale'].default_value = 16.0
+        noise.inputs['Detail'].default_value = 5.0
+        
+        ramp = nodes.new("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].position = 0.15
+        ramp.color_ramp.elements[0].color = (0.07, 0.045, 0.028, 1.0)
+        ramp.color_ramp.elements[1].position = 0.85
+        ramp.color_ramp.elements[1].color = (0.22, 0.14, 0.09, 1.0)
+        
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs['Strength'].default_value = 0.4
+        
+        links.new(tex_coord.outputs['Object'], noise.inputs['Vector'])
+        links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+        links.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
+        links.new(noise.outputs['Fac'], bump.inputs['Height'])
+        links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+        links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
+        
+    mat_foliage_name = f"EliteFoliage_{tree_type}"
+    mat_foliage = bpy.data.materials.get(mat_foliage_name)
+    if not mat_foliage:
+        mat_foliage = bpy.data.materials.new(mat_foliage_name)
+        mat_foliage.use_nodes = True
+        nodes = mat_foliage.node_tree.nodes
+        links = mat_foliage.node_tree.links
+        nodes.clear()
+        
+        out = nodes.new("ShaderNodeOutputMaterial")
+        bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf.inputs['Roughness'].default_value = 0.65
+        
+        tex_coord = nodes.new("ShaderNodeTexCoord")
+        noise = nodes.new("ShaderNodeTexNoise")
+        noise.inputs['Scale'].default_value = 10.0
+        noise.inputs['Detail'].default_value = 4.0
+        
+        ramp = nodes.new("ShaderNodeValToRGB")
+        if tree_type == 'PINE':
+            ramp.color_ramp.elements[0].position = 0.2
+            ramp.color_ramp.elements[0].color = (0.02, 0.11, 0.04, 1.0) # Deep evergreen
+            ramp.color_ramp.elements[1].position = 0.8
+            ramp.color_ramp.elements[1].color = (0.08, 0.25, 0.08, 1.0)
+        elif tree_type == 'MAPLE':
+            ramp.color_ramp.elements[0].position = 0.2
+            ramp.color_ramp.elements[0].color = (0.08, 0.22, 0.05, 1.0) # Vibrant fresh lime
+            ramp.color_ramp.elements[1].position = 0.8
+            ramp.color_ramp.elements[1].color = (0.28, 0.52, 0.12, 1.0)
+        else: # OAK / SHRUB
+            ramp.color_ramp.elements[0].position = 0.2
+            ramp.color_ramp.elements[0].color = (0.04, 0.16, 0.05, 1.0) # Rich emerald
+            ramp.color_ramp.elements[1].position = 0.8
+            ramp.color_ramp.elements[1].color = (0.16, 0.40, 0.10, 1.0)
             
-        obj.data.update()
-        templates[name] = obj
-        bpy.context.collection.objects.unlink(obj)
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs['Strength'].default_value = 0.5
         
-    created_trees = []
-    for idx, (tmpl_name, loc, scale, rot_z) in enumerate(tree_instances):
-        if tmpl_name in templates:
-            tmpl = templates[tmpl_name]
-            tree_obj = bpy.data.objects.new(f"UserTree_{idx}_{tmpl_name}", tmpl.data)
-            tree_obj.location = mathutils.Vector(loc)
-            tree_obj.scale = (scale, scale, scale)
-            tree_obj.rotation_euler = (0, 0, math.radians(rot_z))
-            bpy.context.collection.objects.link(tree_obj)
-            created_trees.append(tree_obj)
-            
-    for obj in templates.values():
-        bpy.data.objects.remove(obj, do_unlink=True)
-        
-    print(f"Successfully placed {len(created_trees)} user 3D trees from trees_3d.zip!")
-    return created_trees
+        links.new(tex_coord.outputs['Object'], noise.inputs['Vector'])
+        links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+        links.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
+        links.new(noise.outputs['Fac'], bump.inputs['Height'])
+        links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+        links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
 
-# ----------------- Background Alpine Mountain Range -----------------
-def create_panoramic_landscape():
+    # 2. Build Sculpted Trunk & Branches
     bm = bmesh.new()
-    segments_x = 45
-    segments_y = 55
-    min_x, max_x = -75.0, -18.0
-    min_y, max_y = -55.0, 55.0
+    
+    trunk_h = (4.2 if tree_type == 'PINE' else 3.2) * scale
+    r_base = (0.24 if tree_type == 'PINE' else 0.32) * scale
+    steps = 8
+    segments = 12
+    
+    prev_verts = []
+    for i in range(segments):
+        ang = 2 * math.pi * i / segments
+        flare = 1.0 + 0.30 * math.sin(ang * 3 + seed)
+        vx = math.cos(ang) * r_base * flare
+        vy = math.sin(ang) * r_base * flare
+        prev_verts.append(bm.verts.new((vx, vy, 0.0)))
+    bm.faces.new(prev_verts[::-1])
+    
+    branch_tips = []
+    curr_x, curr_y, curr_z = 0.0, 0.0, 0.0
+    for s in range(1, steps + 1):
+        t = s / steps
+        r = r_base * (1.0 - 0.58 * t)
+        curr_z = trunk_h * t
+        curr_x += math.sin(t * 1.8 + seed) * 0.06 * scale
+        curr_y += math.cos(t * 1.5 + seed * 2) * 0.06 * scale
+        
+        next_verts = []
+        for i in range(segments):
+            ang = 2 * math.pi * i / segments
+            vx = curr_x + math.cos(ang) * r
+            vy = curr_y + math.sin(ang) * r
+            next_verts.append(bm.verts.new((vx, vy, curr_z)))
+            
+        for i in range(segments):
+            v1 = prev_verts[i]
+            v2 = prev_verts[(i + 1) % segments]
+            v3 = next_verts[(i + 1) % segments]
+            v4 = next_verts[i]
+            bm.faces.new((v1, v2, v3, v4))
+        prev_verts = next_verts
+        
+        if s >= steps - 3:
+            branch_tips.append((curr_x, curr_y, curr_z, r))
+    bm.faces.new(prev_verts)
+    
+    # Branching limbs
+    num_branches = 5 if tree_type == 'OAK' else 4
+    canopy_centers = []
+    for b in range(num_branches):
+        b_ang = (2 * math.pi * b / num_branches) + (random.random() * 0.4)
+        b_len = (1.4 + random.random() * 0.8) * scale
+        b_pitch = (0.25 if tree_type == 'PINE' else 0.50) + random.random() * 0.25
+        
+        start_x, start_y, start_z, start_r = branch_tips[b % len(branch_tips)]
+        dx = math.cos(b_ang) * math.cos(b_pitch)
+        dy = math.sin(b_ang) * math.cos(b_pitch)
+        dz = math.sin(b_pitch)
+        
+        end_x = start_x + dx * b_len
+        end_y = start_y + dy * b_len
+        end_z = start_z + dz * b_len
+        
+        bmesh.ops.create_cone(
+            bm, cap_ends=True, segments=8,
+            radius1=start_r * 0.65, radius2=0.04 * scale, depth=b_len
+        )
+        
+        branch_v = bm.verts[-18:]
+        b_mid = mathutils.Vector(((start_x + end_x)/2, (start_y + end_y)/2, (start_z + end_z)/2))
+        b_dir = mathutils.Vector((dx, dy, dz)).normalized()
+        rot = mathutils.Vector((0, 0, 1)).rotation_difference(b_dir).to_matrix().to_3x3()
+        for v in branch_v:
+            v.co = rot @ v.co + b_mid
+            
+        canopy_centers.append((end_x, end_y, end_z, (1.2 + random.random() * 0.4) * scale))
+        
+    canopy_centers.append((curr_x, curr_y, curr_z + 0.4 * scale, 1.6 * scale))
+    
+    for f in bm.faces:
+        f.smooth = True
+        
+    mesh_trunk = bpy.data.meshes.new(name + "_TrunkMesh")
+    bm.to_mesh(mesh_trunk)
+    bm.free()
+    
+    obj_trunk = bpy.data.objects.new(name + "_Trunk", mesh_trunk)
+    obj_trunk.location = mathutils.Vector(loc)
+    obj_trunk.data.materials.append(mat_bark)
+    bpy.context.collection.objects.link(obj_trunk)
+    
+    # 3. Dense Volumetric Foliage Canopies
+    bm_leaves = bmesh.new()
+    for cx, cy, cz, cr in canopy_centers:
+        bmesh.ops.create_icosphere(bm_leaves, subdivisions=2, radius=cr)
+        # Displace vertices with organic noise
+        verts_cloud = bm_leaves.verts[-42:]
+        for lv in verts_cloud:
+            noise_val = (
+                math.sin(lv.co.x * 2.6 + seed) * 
+                math.cos(lv.co.y * 2.6 + seed) * 0.22 * cr
+            )
+            lv.co += lv.co.normalized() * noise_val
+            lv.co.x = lv.co.x * 1.15 + cx
+            lv.co.y = lv.co.y * 1.15 + cy
+            lv.co.z = lv.co.z * (0.65 if tree_type == 'PINE' else 0.88) + cz
+            
+    for f in bm_leaves.faces:
+        f.smooth = True
+        
+    mesh_leaves = bpy.data.meshes.new(name + "_LeavesMesh")
+    bm_leaves.to_mesh(mesh_leaves)
+    bm_leaves.free()
+    
+    obj_leaves = bpy.data.objects.new(name + "_Canopy", mesh_leaves)
+    obj_leaves.location = mathutils.Vector(loc)
+    obj_leaves.data.materials.append(mat_foliage)
+    bpy.context.collection.objects.link(obj_leaves)
+    obj_leaves.parent = obj_trunk
+    
+    return obj_trunk
+
+# ----------------- Sculpted Manicured Garden Shrub -----------------
+def make_garden_shrub(name, loc, radius=0.45, mat=None):
+    if not mat:
+        mat = bpy.data.materials.get("EliteFoliage_OAK")
+    mesh = bpy.data.meshes.new(name + "_mesh")
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=2, radius=radius)
+    for v in bm.verts:
+        v.co.z *= 0.8
+        v.co += v.co.normalized() * (math.sin(v.co.x * 4.0) * math.cos(v.co.y * 4.0) * 0.08 * radius)
+        v.co.z += radius * 0.8
+    for f in bm.faces:
+        f.smooth = True
+    bm.to_mesh(mesh)
+    bm.free()
+    
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = mathutils.Vector(loc)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(mat)
+    return obj
+
+# ----------------- Smooth Panoramic Mountain Range -----------------
+def create_smooth_alpine_landscape():
+    bm = bmesh.new()
+    segments_x = 50
+    segments_y = 60
+    min_x, max_x = -85.0, -18.0
+    min_y, max_y = -60.0, 60.0
     
     for i in range(segments_y + 1):
         y = min_y + (i / segments_y) * (max_y - min_y)
         for j in range(segments_x + 1):
             x = min_x + (j / segments_x) * (max_x - min_x)
             dist_w = max_x - x
-            h1 = math.sin(x * 0.11) * math.cos(y * 0.09) * 9.5
-            h2 = math.cos(x * 0.20 + y * 0.16) * 4.2
-            h3 = math.sin(x * 0.35 - y * 0.28) * 1.8
-            ramp_factor = (dist_w / (max_x - min_x)) ** 1.35
-            z = max(0.0, (h1 + h2 + h3 + 6.0) * ramp_factor * 1.5) - 0.2
+            # Smooth majestic rolling ridgelines (no harsh spikes)
+            h1 = math.sin(x * 0.08) * math.cos(y * 0.07) * 11.5
+            h2 = math.cos(x * 0.16 + y * 0.12) * 4.8
+            ramp_factor = (dist_w / (max_x - min_x)) ** 1.4
+            z = max(0.0, (h1 + h2 + 7.0) * ramp_factor * 1.6) - 0.1
             bm.verts.new((x, y, z))
             
     bm.verts.ensure_lookup_table()
@@ -630,21 +876,21 @@ def create_panoramic_landscape():
     
     out = nodes.new(type="ShaderNodeOutputMaterial")
     bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
-    bsdf.inputs['Roughness'].default_value = 0.9
+    bsdf.inputs['Roughness'].default_value = 0.88
     
     coord = nodes.new(type="ShaderNodeTexCoord")
     noise = nodes.new(type="ShaderNodeTexNoise")
-    noise.inputs['Scale'].default_value = 0.5
-    noise.inputs['Detail'].default_value = 5.0
+    noise.inputs['Scale'].default_value = 0.25
+    noise.inputs['Detail'].default_value = 4.0
     
     ramp = nodes.new(type="ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].position = 0.28
-    ramp.color_ramp.elements[0].color = (0.10, 0.28, 0.08, 1.0)
+    ramp.color_ramp.elements[0].position = 0.30
+    ramp.color_ramp.elements[0].color = (0.11, 0.26, 0.09, 1.0) # Forest green
     e1 = ramp.color_ramp.elements[1]
-    e1.position = 0.60
-    e1.color = (0.30, 0.28, 0.26, 1.0)
-    e2 = ramp.color_ramp.elements.new(0.85)
-    e2.color = (0.92, 0.95, 0.99, 1.0)
+    e1.position = 0.65
+    e1.color = (0.25, 0.26, 0.24, 1.0) # Mountain slate rock
+    e2 = ramp.color_ramp.elements.new(0.88)
+    e2.color = (0.90, 0.94, 0.98, 1.0) # Snow peak
     
     links.new(coord.outputs['Object'], noise.inputs['Vector'])
     links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
@@ -652,10 +898,22 @@ def create_panoramic_landscape():
     links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     terrain_obj.data.materials.append(mat)
     
-    make_cylinder("InfiniteHorizonGround", 150.0, 0.1, (-30.0, 0.0, -0.15), mat, segments=48)
+    # Ground disc surrounding world
+    mat_surround = bpy.data.materials.new(name="SurroundingMeadowMat")
+    mat_surround.use_nodes = True
+    snodes = mat_surround.node_tree.nodes
+    slinks = mat_surround.node_tree.links
+    snodes.clear()
+    s_out = snodes.new("ShaderNodeOutputMaterial")
+    s_bsdf = snodes.new("ShaderNodeBsdfPrincipled")
+    s_bsdf.inputs['Base Color'].default_value = (0.13, 0.30, 0.11, 1.0) # Rich natural meadow green
+    s_bsdf.inputs['Roughness'].default_value = 0.90
+    slinks.new(s_bsdf.outputs['BSDF'], s_out.inputs['Surface'])
+    
+    make_cylinder("InfiniteHorizonGround", 160.0, 0.1, (-30.0, 0.0, -0.15), mat_surround, segments=48)
     return terrain_obj
 
-# ----------------- Master 4K Scene Builder V9 -----------------
+# ----------------- Master 4K Scene Perfection V10 -----------------
 def build_master_scene():
     clean_entire_blend_file()
     scene = bpy.context.scene
@@ -663,7 +921,7 @@ def build_master_scene():
     # 1. Physical Atmosphere & Color Grading
     scene.view_settings.view_transform = 'Filmic'
     scene.view_settings.look = 'Medium High Contrast'
-    scene.view_settings.exposure = -0.15
+    scene.view_settings.exposure = -0.10
     
     world = scene.world
     if not world:
@@ -674,106 +932,131 @@ def build_master_scene():
     wlinks = world.node_tree.links
     wnodes.clear()
     
-    w_out = wnodes.new(type="ShaderNodeOutputWorld")
+    w_out = wnodes.new(type="ShaderNodeOutputMaterial" if hasattr(bpy.types, "ShaderNodeOutputMaterial") else "ShaderNodeOutputWorld")
+    if not hasattr(w_out, 'inputs') or 'Surface' not in w_out.inputs:
+        wnodes.remove(w_out)
+        w_out = wnodes.new(type="ShaderNodeOutputWorld")
+        
     w_bg = wnodes.new(type="ShaderNodeBackground")
     w_sky = wnodes.new(type="ShaderNodeTexSky")
     w_sky.sky_type = 'MULTIPLE_SCATTERING'
-    w_sky.sun_elevation = math.radians(32.0)
-    w_sky.sun_rotation = math.radians(115.0)
-    w_bg.inputs['Strength'].default_value = 0.95
+    w_sky.sun_elevation = math.radians(34.0)
+    w_sky.sun_rotation = math.radians(118.0)
+    w_bg.inputs['Strength'].default_value = 1.05
     wlinks.new(w_sky.outputs['Color'], w_bg.inputs['Color'])
     wlinks.new(w_bg.outputs['Background'], w_out.inputs['Surface'])
 
     # 2. Materials
     mat_floor = create_luxury_walnut_floor()
-    mat_wall_slat = create_pbr_mat("AcousticWoodSlat", (0.12, 0.07, 0.04, 1.0), roughness=0.35)
-    mat_wall_plaster = create_pbr_mat("DesignerPlaster", (0.92, 0.92, 0.90, 1.0), roughness=0.85)
-    mat_ceiling = create_pbr_mat("CeilingMat", (0.96, 0.96, 0.96, 1.0), roughness=0.8)
+    mat_wall_slat = create_pbr_mat("AcousticWoodSlat", (0.13, 0.075, 0.045, 1.0), roughness=0.35)
+    mat_wall_plaster_interior = create_pbr_mat("DesignerPlaster", (0.92, 0.92, 0.90, 1.0), roughness=0.85)
+    mat_ceiling = create_pbr_mat("CeilingMat", (0.15, 0.15, 0.16, 1.0), roughness=0.7) # Architectural dark slate ceiling
     mat_glass = create_pbr_mat("ArchitecturalGlass", (0.95, 0.98, 1.0, 0.1), roughness=0.01, is_glass=True)
-    mat_dark_aluminum = create_pbr_mat("AnodizedBlackAluminum", (0.04, 0.04, 0.05, 1.0), roughness=0.25, metallic=0.92)
-    mat_gold_accent = create_pbr_mat("BrushedChampagneGold", (0.92, 0.75, 0.35, 1.0), roughness=0.22, metallic=0.96)
+    mat_dark_aluminum = create_pbr_mat("AnodizedBlackAluminum", (0.035, 0.035, 0.042, 1.0), roughness=0.25, metallic=0.92)
+    mat_gold_accent = create_pbr_mat("BrushedChampagneGold", (0.92, 0.78, 0.42, 1.0), roughness=0.22, metallic=0.96)
     
-    mat_warm_led = create_pbr_mat("WarmCoveLED", (1.0, 0.88, 0.72, 1.0), emission=(1.0, 0.88, 0.72, 1.0), emission_strength=4.5)
+    mat_facade_wood = create_architectural_exterior_wood()
+    mat_facade_concrete = create_board_formed_concrete()
+    
+    mat_warm_led = create_pbr_mat("WarmCoveLED", (1.0, 0.88, 0.72, 1.0), emission=(1.0, 0.88, 0.72, 1.0), emission_strength=4.8)
     mat_rgb_cyan = create_pbr_mat("RGBCyanGlow", (0.0, 0.9, 1.0, 1.0), emission=(0.0, 0.88, 1.0, 1.0), emission_strength=6.0)
     mat_rgb_magenta = create_pbr_mat("RGBMagentaGlow", (1.0, 0.05, 0.55, 1.0), emission=(1.0, 0.05, 0.55, 1.0), emission_strength=5.5)
     
-    mat_lawn = create_pbr_mat("LushGardenLawn", (0.13, 0.36, 0.11, 1.0), roughness=0.88)
-    mat_patio_stone = create_pbr_mat("TravertinePatio", (0.82, 0.79, 0.75, 1.0), roughness=0.45)
+    mat_lawn = create_pbr_mat("ManicuredGardenLawn", (0.14, 0.35, 0.12, 1.0), roughness=0.85)
+    mat_patio_stone = create_pbr_mat("TravertinePatio", (0.84, 0.82, 0.78, 1.0), roughness=0.45)
     mat_rim_orange = create_pbr_mat("RimOrangePro", (0.95, 0.28, 0.04, 1.0), roughness=0.3, metallic=0.2)
     mat_easel_wood = create_pbr_mat("BeechwoodStudioEasel", (0.58, 0.40, 0.24, 1.0), roughness=0.45)
 
-    # Generated Photoreal Textures
     mat_screen_wallpaper = generate_hd_screen_texture()
     mat_court_surface = generate_hd_court_texture()
     mat_drawing_canvas = generate_hd_canvas_texture()
 
-    # 3. Room Architecture (X from -2.6 to 3.2, Y from -2.4 to 2.4, height 3.2m)
+    # 3. Modern Architectural Glass Pavilion Architecture
     room_w, room_d, room_h = 5.8, 4.8, 3.2
     floor_cx = 0.3
     floor_cy = 0.0
+    
+    # Luxury Walnut Floor
     make_box("RoomFloor", (room_w, room_d, 0.1), (floor_cx, floor_cy, -0.05), mat_floor)
     
-    make_box("RoomCeiling", (room_w, room_d, 0.1), (floor_cx, floor_cy, room_h + 0.05), mat_ceiling)
+    # Modern Cantilevered Floating Roof
+    # Roof slab extends beyond the walls creating deep overhangs
+    roof_w = room_w + 1.8 # extends over left terrace!
+    roof_d = room_d + 0.8
+    roof_cx = floor_cx - 0.7
+    roof_cy = floor_cy
+    roof_z = room_h + 0.10
+    
+    # Roof Main Slab & Underside Soffit
+    make_box("ArchitecturalRoof_Main", (roof_w, roof_d, 0.18), (roof_cx, roof_cy, roof_z), mat_ceiling)
+    make_box("ArchitecturalRoof_FasciaTrim", (roof_w + 0.06, roof_d + 0.06, 0.20), (roof_cx, roof_cy, roof_z), mat_dark_aluminum)
+    
+    # Recessed warm architectural soffit spotlights under the roof overhang
+    for spotlight_x, spotlight_y in [
+        (floor_cx - 1.2, 1.8), (floor_cx - 1.2, -1.8),
+        (floor_cx + 1.2, 1.8), (floor_cx + 1.2, -1.8),
+        (floor_cx - 2.8, 1.0), (floor_cx - 2.8, -1.0) # over terrace
+    ]:
+        make_cylinder(f"SoffitSpot_{spotlight_x:.1f}_{spotlight_y:.1f}", 0.06, 0.02, (spotlight_x, spotlight_y, room_h + 0.01), mat_warm_led)
+
+    # Interior Warm Cove Lighting
     make_box("CoveLightingBack", (room_w - 0.4, 0.03, 0.02), (floor_cx, room_d/2 - 0.25, room_h - 0.03), mat_warm_led)
     make_box("CoveLightingRight", (0.03, room_d - 0.4, 0.02), (floor_cx + room_w/2 - 0.25, floor_cy, room_h - 0.03), mat_warm_led)
 
-    # Back Wall with Designer Acoustic Wood Slats
-    make_box("BackWallBase", (room_w, 0.15, room_h), (floor_cx, room_d/2, room_h/2), mat_wall_plaster)
+    # Back Wall: Acoustic Slats Interior + Horizontal Cedar Siding Exterior
+    make_box("BackWallInteriorPlaster", (room_w, 0.06, room_h), (floor_cx, room_d/2 - 0.04, room_h/2), mat_wall_plaster_interior)
+    make_box("BackWallExteriorFacade", (room_w + 0.08, 0.08, room_h), (floor_cx, room_d/2 + 0.03, room_h/2), mat_facade_wood)
+    
     slat_spacing = 0.08
     for sx in [-2.4 + i * slat_spacing for i in range(35)]:
-        make_box(f"WoodSlat_{sx:.2f}", (0.045, 0.03, room_h), (sx, room_d/2 - 0.09, room_h/2), mat_wall_slat)
+        make_box(f"WoodSlat_{sx:.2f}", (0.045, 0.03, room_h), (sx, room_d/2 - 0.08, room_h/2), mat_wall_slat)
 
-    # Right Wall with Floor-to-Ceiling Picture Windows
-    win_w, win_h = 2.0, 2.3
+    # Right Wall: Floor-to-Ceiling Picture Windows + Concrete Exterior Sills
     right_wall_x = floor_cx + room_w/2
+    win_w, win_h = 2.0, 2.3
     for y_pos in [0.8, -1.3]:
         make_box(f"WinFrameOuter_{y_pos}", (0.16, win_w + 0.12, win_h + 0.12), (right_wall_x, y_pos, 1.5), mat_dark_aluminum)
         make_box(f"WinGlassPane_{y_pos}", (0.02, win_w, win_h), (right_wall_x, y_pos, 1.5), mat_glass)
         make_box(f"WinMullionH_{y_pos}", (0.06, win_w, 0.04), (right_wall_x, y_pos, 1.5), mat_dark_aluminum)
         make_box(f"WinMullionV_{y_pos}", (0.06, 0.04, win_h), (right_wall_x, y_pos, 1.5), mat_dark_aluminum)
         make_box(f"WinOakSill_{y_pos}", (0.35, win_w + 0.2, 0.04), (right_wall_x - 0.1, y_pos, 0.33), mat_wall_slat)
+        make_box(f"WinStoneSillExt_{y_pos}", (0.22, win_w + 0.24, 0.05), (right_wall_x + 0.10, y_pos, 0.32), mat_patio_stone)
     
-    make_box("RightPillarBack", (0.2, 0.8, room_h), (right_wall_x, 2.0, room_h/2), mat_wall_plaster)
-    make_box("RightPillarCenter", (0.2, 0.6, room_h), (right_wall_x, -0.25, room_h/2), mat_wall_plaster)
-    make_box("RightPillarFront", (0.2, 0.8, room_h), (right_wall_x, -2.0, room_h/2), mat_wall_plaster)
+    # Exterior Pillars in Board-Formed Architectural Concrete
+    make_box("RightPillarBack", (0.24, 0.8, room_h), (right_wall_x, 2.0, room_h/2), mat_facade_concrete)
+    make_box("RightPillarCenter", (0.24, 0.6, room_h), (right_wall_x, -0.25, room_h/2), mat_facade_concrete)
+    make_box("RightPillarFront", (0.24, 0.8, room_h), (right_wall_x, -2.0, room_h/2), mat_facade_concrete)
 
     # Left Terrace & Patio
     left_threshold_x = floor_cx - room_w/2 # X = -2.6
     make_box("OpenTerraceHeader", (0.18, room_d, 0.25), (left_threshold_x, floor_cy, room_h - 0.125), mat_dark_aluminum)
     make_box("OpenTerraceFloorTrack", (0.06, room_d, 0.015), (left_threshold_x, floor_cy, 0.005), mat_dark_aluminum)
     
-    terrace_w = 2.6
+    terrace_w = 2.8
     terrace_cx = left_threshold_x - terrace_w/2
-    make_box("TerraceSlab", (terrace_w, room_d, 0.1), (terrace_cx, floor_cy, -0.05), mat_patio_stone)
-    make_box("TerraceEdgeBorder", (0.08, room_d, 0.06), (left_threshold_x - terrace_w, floor_cy, -0.02), mat_dark_aluminum)
+    make_box("TerraceSlab", (terrace_w, room_d + 0.6, 0.1), (terrace_cx, floor_cy, -0.05), mat_patio_stone)
+    make_box("TerraceEdgeBorder", (0.08, room_d + 0.6, 0.06), (left_threshold_x - terrace_w, floor_cy, -0.02), mat_dark_aluminum)
 
-    # ----------------- 4. "Roshan" Name Board on Exterior Roof / Header -----------------
-    # Illuminated architectural billboard plaque above open terrace header beam
-    sign_rot_z = math.radians(-25.0) # Angled gracefully towards camera for maximum readability!
-    sign_cx = left_threshold_x + 0.2
-    sign_cy = -0.3
-    sign_cz = room_h + 0.38
+    # ----------------- 4. "Roshan" Modern 3D Floating Channel Sign -----------------
+    # Integrated on the front fascia of the modern cantilevered roof
+    sign_cx = floor_cx - 1.2
+    sign_cy = - (roof_d / 2.0) - 0.02
+    sign_cz = roof_z
     
-    # Backing Plaque with beveled styling
-    make_box("RoshanSign_BackingPlaque", (2.4, 0.06, 0.65), (sign_cx, sign_cy, sign_cz), mat_dark_aluminum, rot=(0, 0, sign_rot_z))
-    make_box("RoshanSign_GoldRim", (2.44, 0.05, 0.69), (sign_cx, sign_cy, sign_cz), mat_gold_accent, rot=(0, 0, sign_rot_z))
-    make_box("RoshanSign_BacklightHalo", (2.2, 0.02, 0.50), (
-        sign_cx - math.sin(sign_rot_z) * 0.04,
-        sign_cy + math.cos(sign_rot_z) * 0.04,
-        sign_cz
-    ), mat_warm_led, rot=(0, 0, sign_rot_z))
+    # Elegant backing accent panel
+    make_box("RoshanSign_BackingPlate", (2.6, 0.04, 0.48), (sign_cx, sign_cy, sign_cz), mat_dark_aluminum)
+    make_box("RoshanSign_GoldBorder", (2.64, 0.03, 0.52), (sign_cx, sign_cy - 0.005, sign_cz), mat_gold_accent)
+    make_box("RoshanSign_HaloLight", (2.4, 0.02, 0.38), (sign_cx, sign_cy - 0.02, sign_cz), mat_warm_led)
     
-    # 3D 4K Bold Mesh Letters "ROSHAN"
     curve_data = bpy.data.curves.new(name="RoshanFontCurve", type='FONT')
     curve_data.body = "ROSHAN"
-    curve_data.extrude = 0.05
-    curve_data.bevel_depth = 0.012
+    curve_data.extrude = 0.04
+    curve_data.bevel_depth = 0.01
     curve_data.bevel_resolution = 3
-    curve_data.size = 0.42
+    curve_data.size = 0.36
     
     temp_text_obj = bpy.data.objects.new("TempRoshanSign", curve_data)
     bpy.context.collection.objects.link(temp_text_obj)
-    
     depsgraph = bpy.context.evaluated_depsgraph_get()
     text_mesh = bpy.data.meshes.new_from_object(temp_text_obj.evaluated_get(depsgraph))
     bpy.data.objects.remove(temp_text_obj, do_unlink=True)
@@ -782,72 +1065,70 @@ def build_master_scene():
     roshan_mesh_obj = bpy.data.objects.new("Roshan_3D_Exterior_Sign", text_mesh)
     roshan_mesh_obj.data.materials.append(mat_gold_accent)
     bpy.context.collection.objects.link(roshan_mesh_obj)
-    
-    # Position text on the face of the backing plaque
-    # Centering offset for "ROSHAN" (width ~1.75m)
-    half_text_len = 0.90
-    roshan_mesh_obj.rotation_euler = (math.radians(90), 0, sign_rot_z + math.radians(90))
-    roshan_mesh_obj.location = (
-        sign_cx - math.cos(sign_rot_z) * half_text_len - math.sin(sign_rot_z) * 0.04,
-        sign_cy - math.sin(sign_rot_z) * half_text_len + math.cos(sign_rot_z) * 0.04,
-        sign_cz - 0.20
-    )
+    roshan_mesh_obj.rotation_euler = (math.radians(90), 0, 0)
+    roshan_mesh_obj.location = (sign_cx - 0.85, sign_cy - 0.035, sign_cz - 0.18)
 
-    # ----------------- 5. Surroundings & Mountains -----------------
-    create_panoramic_landscape()
-    make_box("LushGardenLawn", (13.0, 24.0, 0.1), (-11.7, 0.0, -0.06), mat_lawn)
+    # ----------------- 5. Seamless Landscape & Surroundings -----------------
+    create_smooth_alpine_landscape()
     
+    # Flush Garden Lawn (Seamlessly surrounds terrace and court)
+    make_box("ManicuredGardenLawn", (15.0, 26.0, 0.09), (-11.2, 0.0, -0.055), mat_lawn)
+    
+    # Stepping stones embedded into lawn towards court
     for i, py in enumerate([-1.8, -1.0, -0.2, 0.6, 1.4]):
-        make_box(f"StepStone_{i}", (0.75, 0.5, 0.025), (left_threshold_x - terrace_w - 0.5 - (i%2)*0.15, py, 0.01), mat_patio_stone)
+        make_box(f"StepStone_{i}", (0.80, 0.50, 0.02), (left_threshold_x - terrace_w - 0.55 - (i%2)*0.15, py, 0.005), mat_patio_stone)
 
-    # User 3D Trees from trees_3d.zip (Authentic textured 3D trees)
-    tree_instances = [
-        # (Template Name, (X, Y, Z), scale, rot_z)
-        ("Oak_Leav", (-5.6, -2.8, 0.0), 1.25, 35),
-        ("Oak_Leav", (-6.2, 3.8, 0.0), 1.30, 110),
-        ("Sonnerat", (-11.2, -4.5, 0.0), 0.65, 45),
-        ("Walnut_L", (-12.0, 5.2, 0.0), 0.60, 80),
-        ("Bark___S", (-6.8, 6.8, 0.0), 0.65, 15),
-        ("Bark___S", (-5.8, -6.5, 0.0), 0.60, 140),
-        ("Mossy_Tr", (-15.5, 2.5, 0.0), 0.50, 60),
-        ("Bark___0", (-14.8, -5.5, 0.0), 0.52, 210),
-        ("Bark___1", (-21.0, 8.5, 0.8), 0.45, 95),
-        ("Bottom_T", (-24.0, -1.0, 1.2), 0.40, 30),
-        ("Bark___1", (-22.5, -8.5, 0.9), 0.45, 175)
+    # Sculpted Foundation Shrubs along terrace and house
+    for si, (sx, sy) in enumerate([
+        (left_threshold_x - terrace_w - 0.2, -2.4),
+        (left_threshold_x - terrace_w - 0.2, 2.4),
+        (left_threshold_x - 0.3, -2.5),
+        (right_wall_x + 0.35, 1.4),
+        (right_wall_x + 0.35, -0.7)
+    ]):
+        make_garden_shrub(f"FoundationBoxwood_{si}", (sx, sy, 0.0), radius=0.42)
+
+    # Elite Architectural Botanical Trees (Lush, volumetric, organic!)
+    # Variety: Japanese Maple near terrace, Oak framing court, Scots Pine on mountain slope
+    tree_placements = [
+        # (Name, (X, Y, Z), Scale, Type, Seed)
+        ("ZenMaple_TerraceFront", (-5.6, -3.2, 0.0), 1.10, 'MAPLE', 31),
+        ("ZenMaple_TerraceBack", (-6.2, 4.2, 0.0), 1.15, 'MAPLE', 74),
+        ("GrandOak_CourtMidLeft", (-11.8, -5.2, 0.0), 1.35, 'OAK', 55),
+        ("GrandOak_CourtMidRight", (-12.2, 5.8, 0.0), 1.40, 'OAK', 92),
+        ("Broadleaf_CourtBack", (-15.5, 3.2, 0.0), 1.60, 'OAK', 18),
+        ("Broadleaf_CourtFarBack", (-15.0, -6.5, 0.0), 1.55, 'OAK', 83),
+        ("ScotsPine_RidgeTop", (-21.5, 9.2, 0.8), 2.20, 'PINE', 104),
+        ("ScotsPine_RidgeMid", (-25.0, -0.5, 1.2), 2.40, 'PINE', 47),
+        ("ScotsPine_RidgeSouth", (-23.5, -9.0, 0.9), 2.25, 'PINE', 68)
     ]
-    import_and_setup_user_trees(tree_instances)
+    for tname, tloc, tscale, ttype, tseed in tree_placements:
+        create_architectural_tree(tname, tloc, scale=tscale, tree_type=ttype, seed=tseed)
 
     # ----------------- 6. Drawing Board / Studio Easel Setup -----------------
-    # Positioned in garden/terrace transition area between court and room
     easel_x = -5.4
     easel_y = 1.1
-    easel_z = 0.0
-    easel_rot_z = math.radians(20.0) # Angled towards room and camera
+    easel_rot_z = math.radians(22.0)
     
-    # Tripod Legs
     leg_len = 1.75
     leg_pitch = math.radians(12.0)
     leg_w = 0.045
-    # Front Left Leg
     make_box("EaselLeg_FL", (leg_w, leg_w, leg_len), (
         easel_x - 0.28 * math.cos(easel_rot_z),
         easel_y - 0.28 * math.sin(easel_rot_z),
         leg_len/2 * math.cos(leg_pitch)
     ), mat_easel_wood, rot=(0, leg_pitch, easel_rot_z))
-    # Front Right Leg
     make_box("EaselLeg_FR", (leg_w, leg_w, leg_len), (
         easel_x + 0.28 * math.cos(easel_rot_z),
         easel_y + 0.28 * math.sin(easel_rot_z),
         leg_len/2 * math.cos(leg_pitch)
     ), mat_easel_wood, rot=(0, -leg_pitch, easel_rot_z))
-    # Back Strut Leg
     make_box("EaselLeg_Back", (leg_w, leg_w, leg_len * 0.95), (
         easel_x - 0.40 * math.sin(easel_rot_z),
         easel_y + 0.40 * math.cos(easel_rot_z),
         leg_len/2 * 0.9
     ), mat_easel_wood, rot=(-math.radians(22.0), 0, easel_rot_z))
     
-    # Central Mast & Horizontal Tray
     make_box("EaselMast", (0.06, 0.05, 1.85), (easel_x, easel_y, 0.92), mat_easel_wood, rot=(0, 0, easel_rot_z))
     make_box("EaselShelfTray", (0.95, 0.14, 0.04), (
         easel_x + 0.03 * math.sin(easel_rot_z),
@@ -855,16 +1136,14 @@ def build_master_scene():
         0.82
     ), mat_easel_wood, rot=(0, 0, easel_rot_z))
     
-    # Large Drawing Board & Canvas
     canvas_w, canvas_h = 0.92, 0.72
-    canvas_pitch = math.radians(-10.0) # Leaned back naturally
+    canvas_pitch = math.radians(-10.0)
     make_box("DrawingBoard_Backing", (canvas_w + 0.04, 0.025, canvas_h + 0.04), (
         easel_x + 0.02 * math.sin(easel_rot_z),
         easel_y - 0.02 * math.cos(easel_rot_z),
         0.84 + canvas_h/2
     ), mat_wall_slat, rot=(canvas_pitch, 0, easel_rot_z))
     
-    # Canvas with Architectural Concept Sketch
     art_canvas = make_box("DrawingBoard_CanvasArt", (canvas_w, 0.015, canvas_h), (
         easel_x + 0.035 * math.sin(easel_rot_z),
         easel_y - 0.035 * math.cos(easel_rot_z),
@@ -872,7 +1151,6 @@ def build_master_scene():
     ), mat_drawing_canvas, rot=(canvas_pitch, 0, easel_rot_z))
     add_box_uvs(art_canvas, projection='Y')
     
-    # Artist Wooden Palette & Brushes on Shelf
     make_cylinder("ArtistPalette", 0.16, 0.01, (easel_x + 0.32, easel_y - 0.08, 0.85), mat_easel_wood)
     for pi, pcol in enumerate([mat_rgb_cyan, mat_rgb_magenta, mat_gold_accent, mat_rim_orange]):
         ang = pi * 1.2
@@ -886,38 +1164,32 @@ def build_master_scene():
     court_y = 0.4
     court_w, court_l = 4.8, 5.8
     
-    # Photoreal Athletic Acrylic Half-Court Surface with complete lines
     court_obj = make_box("BasketballCourt_Surface", (court_w, court_l, 0.035), (court_x, court_y, -0.015), mat_court_surface)
     add_box_uvs(court_obj, projection='Z')
-    make_box("BasketballCourt_BorderGravel", (court_w + 0.6, court_l + 0.6, 0.025), (court_x, court_y, -0.025), mat_patio_stone)
+    make_box("BasketballCourt_BorderGravel", (court_w + 0.5, court_l + 0.5, 0.025), (court_x, court_y, -0.025), mat_patio_stone)
 
-    # Regulation Hoop System: 100% SEEDHA / STRAIGHT (Angle = 0.0) facing South (-Y)
-    hoop_rot = 0.0
+    # Regulation Hoop System (100% Straight, rot = 0.0)
     bb_x = court_x
     bb_y = court_y + court_l/2 - 0.35
     bb_z = 3.25
     
     pole_h = 3.8
     pole_x = bb_x
-    pole_y = bb_y + 0.85 # directly behind backboard
+    pole_y = bb_y + 0.85
     
-    # Support Pole & Base
     make_box("HoopSupportPole", (0.18, 0.18, pole_h), (pole_x, pole_y, pole_h/2), mat_dark_aluminum)
     make_box("HoopBaseplate", (0.44, 0.44, 0.03), (pole_x, pole_y, 0.015), mat_dark_aluminum)
     make_box("HoopPolePad", (0.28, 0.28, 1.8), (pole_x, pole_y, 0.9), mat_dark_aluminum)
     make_box("HoopPadAccentTop", (0.285, 0.285, 0.05), (pole_x, pole_y, 1.7), mat_rim_orange)
     make_box("HoopPadAccentMid", (0.285, 0.285, 0.05), (pole_x, pole_y, 1.0), mat_rim_orange)
     
-    # Overhang Arms connecting straight to backboard
     make_box("HoopOverhangArm", (0.14, 0.85, 0.06), (bb_x, (pole_y + bb_y)/2, 3.0), mat_dark_aluminum)
     make_box("HoopDiagonalStrut", (0.06, 0.70, 0.06), (bb_x, (pole_y + bb_y)/2 + 0.05, 3.4), mat_dark_aluminum, rot=(math.radians(28.0), 0, 0))
 
-    # Regulation Glass Backboard facing straight South (-Y)
     make_box("BackboardGlass", (1.83, 0.03, 1.07), (bb_x, bb_y, bb_z), mat_glass)
     make_box("BackboardFrameOuter", (1.87, 0.05, 1.11), (bb_x, bb_y, bb_z), mat_dark_aluminum)
     make_box("BackboardCrashPadBottom", (1.87, 0.08, 0.08), (bb_x, bb_y, bb_z - 0.54), mat_dark_aluminum)
 
-    # Inner Target Rectangle
     target_w, target_h = 0.61, 0.46
     target_z = 3.12
     make_box("TargetLineTop", (target_w, 0.02, 0.04), (bb_x, bb_y - 0.025, target_z + target_h/2), mat_rim_orange)
@@ -925,7 +1197,6 @@ def build_master_scene():
     make_box("TargetLineLeft", (0.04, 0.02, target_h), (bb_x - target_w/2, bb_y - 0.025, target_z), mat_rim_orange)
     make_box("TargetLineRight", (0.04, 0.02, target_h), (bb_x + target_w/2, bb_y - 0.025, target_z), mat_rim_orange)
 
-    # User Hoop & Net from Basketball Hoop.blend
     hoop_objs = append_objects("Basketball Hoop.blend", ["Hoop"])
     if hoop_objs:
         hoop = hoop_objs[0]
@@ -934,7 +1205,6 @@ def build_master_scene():
         hoop.location = (bb_x, bb_y - 0.42, 2.95)
         hoop.rotation_euler = (0, 0, 0)
 
-    # User Basketball
     ball_objs = append_objects("low-poly basketball ball.blend", ["BasketBall_Low"])
     if ball_objs:
         ball = ball_objs[0]
@@ -942,7 +1212,7 @@ def build_master_scene():
         ball.location = (court_x + 0.3, court_y - 0.6, 0.13)
         ball.scale = (1.0, 1.0, 1.0)
 
-    # ----------------- 8. Luxury Master Bed (Grounded & Pillows Facing Room) -----------------
+    # ----------------- 8. Luxury Master Bed -----------------
     bed_objs = append_objects("bed.blend", ["Plane.001"])
     if bed_objs:
         bed = bed_objs[0]
@@ -955,7 +1225,6 @@ def build_master_scene():
         min_z = min(v.z for v in verts_world)
         bed.location = (1.80, 0.70, -min_z)
 
-    # Nightstand & Designer Lamp
     make_box("Nightstand", (0.5, 0.5, 0.54), (2.80, 1.85, 0.27), mat_wall_slat)
     make_box("NightstandDrawer", (0.51, 0.46, 0.2), (2.80, 1.83, 0.35), mat_dark_aluminum)
     make_box("DrawerBrassPull", (0.02, 0.14, 0.02), (2.80, 1.59, 0.35), mat_gold_accent)
@@ -986,18 +1255,17 @@ def build_master_scene():
 
     make_box("ProDeskMat", (0.92, 0.42, 0.005), (desk_x - 0.1, desk_y - 0.08, desk_h + 0.0215), mat_dark_aluminum)
 
-    # 49" Curved OLED Ultrawide Monitor with HD Screen Display
     mon_w, mon_h = 1.15, 0.38
     mon_z = desk_h + 0.25
     make_box("MonArmBase", (0.16, 0.16, 0.02), (desk_x, desk_y + 0.30, desk_h + 0.025), mat_dark_aluminum)
     make_cylinder("MonArmPillar", 0.03, 0.38, (desk_x, desk_y + 0.30, desk_h + 0.20), mat_dark_aluminum)
     make_box("MonArmElbow", (0.08, 0.20, 0.05), (desk_x, desk_y + 0.22, mon_z), mat_dark_aluminum)
     make_box("MonChassis", (mon_w, 0.03, mon_h), (desk_x, desk_y + 0.12, mon_z), mat_dark_aluminum)
+    
     mon_scr = make_box("MonScreenOLED", (mon_w - 0.02, 0.004, mon_h - 0.02), (desk_x, desk_y + 0.102, mon_z), mat_screen_wallpaper)
     add_box_uvs(mon_scr, projection='Y')
     make_box("MonRearAmbientGlow", (mon_w * 0.85, 0.015, 0.02), (desk_x, desk_y + 0.14, mon_z), mat_rgb_cyan)
 
-    # Custom Mechanical Keyboard
     kb_x = desk_x - 0.12
     kb_y = desk_y - 0.12
     kb_z = desk_h + 0.022
@@ -1005,15 +1273,14 @@ def build_master_scene():
     make_box("CustomKB_BrassWeight", (0.32, 0.10, 0.003), (kb_x, kb_y, kb_z + 0.001), mat_gold_accent)
     for r_idx, (ry, rmat) in enumerate([
         (0.045, mat_rgb_cyan),
-        (0.025, mat_wall_plaster),
-        (0.005, mat_wall_plaster),
-        (-0.015, mat_wall_plaster),
-        (-0.035, mat_wall_plaster)
+        (0.025, mat_wall_plaster_interior),
+        (0.005, mat_wall_plaster_interior),
+        (-0.015, mat_wall_plaster_interior),
+        (-0.035, mat_wall_plaster_interior)
     ]):
         make_box(f"KeycapCluster_{r_idx}", (0.34, 0.017, 0.008), (kb_x, kb_y + ry, kb_z + 0.023), rmat)
     make_box("KeycapSpacebar", (0.14, 0.017, 0.008), (kb_x, kb_y - 0.052, kb_z + 0.023), mat_rgb_magenta)
 
-    # Wireless Gaming Mouse
     mx = desk_x + 0.22
     my = desk_y - 0.12
     mz = desk_h + 0.022
@@ -1022,21 +1289,17 @@ def build_master_scene():
     make_box("ProMouseRClick", (0.032, 0.045, 0.005), (mx + 0.017, my - 0.035, mz + 0.034), mat_wall_slat)
     make_cylinder("ProMouseWheel", 0.01, 0.01, (mx, my - 0.028, mz + 0.035), mat_rgb_cyan, rot=(0, math.radians(90), 0))
 
-    # Studio Monitor Speakers
     for s, sx in [("L", desk_x - 0.65), ("R", desk_x + 0.65)]:
         make_box(f"StudioSpeaker_{s}", (0.13, 0.16, 0.24), (sx, desk_y + 0.12, desk_h + 0.14), mat_dark_aluminum)
         make_cylinder(f"SpeakerKevlarWoofer_{s}", 0.048, 0.01, (sx, desk_y + 0.038, desk_h + 0.11), mat_gold_accent, rot=(math.radians(90), 0, 0))
 
-    # ----------------- 10. PC Case Straightened & Colors Perfected -----------------
+    # PC Case (Straightened & Sleek Stealth Matte Black + RGB)
     pc_parts = append_objects("pc_case/pc.blend", [])
     pc_root = bpy.data.objects.new("UserPCCase_Root", None)
-    # Positioned neatly on the right side of desk, aligned along Y
     pc_root.location = (desk_x + desk_w/2 - 0.22, desk_y + 0.04, desk_h + 0.02)
-    # Rotate 90 degrees so case length is along Y (front facing user, glass facing left)
     pc_root.rotation_euler = (0, 0, math.radians(90.0))
     bpy.context.collection.objects.link(pc_root)
     
-    # Perfect PC Materials
     mat_pc_chassis = create_pbr_mat("PCChassisStealthBlack", (0.018, 0.018, 0.022, 1.0), roughness=0.28, metallic=0.92)
     mat_pc_glass = create_pbr_mat("PCTemperedGlassPanel", (0.1, 0.1, 0.12, 1.0), roughness=0.02, is_glass=True)
     mat_pc_rgb_fan = create_pbr_mat("PCRGBFanGlow", (0.0, 0.88, 1.0, 1.0), emission=(0.0, 0.88, 1.0, 1.0), emission_strength=7.5)
@@ -1052,19 +1315,18 @@ def build_master_scene():
                 p.scale = (p.scale.x * 0.11, p.scale.y * 0.11, p.scale.z * 0.11)
                 p.location = (p.location.x * 0.11, p.location.y * 0.11, p.location.z * 0.11)
                 
-                # Assign professional materials
                 if "Fan" in p.name or "Industrial" in p.name:
                     p.data.materials.clear()
                     p.data.materials.append(mat_pc_rgb_fan)
                     p.data.materials.append(mat_pc_chassis)
-                elif "Cube.001" in p.name: # Tempered glass side panel
+                elif "Cube.001" in p.name:
                     p.data.materials.clear()
                     p.data.materials.append(mat_pc_glass)
                 else:
                     p.data.materials.clear()
                     p.data.materials.append(mat_pc_chassis)
 
-    # ----------------- 11. User Gaming Chair (Keyframed Swivel Animation) -----------------
+    # ----------------- 10. User Gaming Chair -----------------
     chair_names = ['Plane', 'Plane.005', 'Cylinder', 'Cube', 'Cube.001', 'Plane.002', 'Plane.004']
     imported_chair = append_objects("gaming chair.blend", chair_names)
     
@@ -1073,7 +1335,6 @@ def build_master_scene():
     bpy.context.collection.objects.link(chair_root)
     
     if imported_chair:
-        # Decimate high-poly seat mesh if needed (reduces 1.66M verts to ~100k)
         for obj in imported_chair:
             if obj.data and hasattr(obj.data, 'vertices') and len(obj.data.vertices) > 500000:
                 mod = obj.modifiers.new("DecimateChair", 'DECIMATE')
@@ -1120,38 +1381,37 @@ def build_master_scene():
     
     scene.frame_set(25)
 
-    # ----------------- 12. Balanced Architectural Lighting -----------------
+    # ----------------- 11. Lighting -----------------
     sun = bpy.data.lights.new(name="GoldenSun", type='SUN')
-    sun.energy = 2.2
-    sun.color = (1.0, 0.95, 0.88)
-    sun.angle = math.radians(24.0)
+    sun.energy = 2.4
+    sun.color = (1.0, 0.96, 0.90)
+    sun.angle = math.radians(22.0)
     sun_obj = bpy.data.objects.new(name="GoldenSun", object_data=sun)
     bpy.context.collection.objects.link(sun_obj)
     sun_obj.location = (-12.0, -8.0, 14.0)
     sun_obj.rotation_euler = (math.radians(38), math.radians(-25), math.radians(55))
 
-    # Balanced interior ambient fill (tuned down so floor doesn't wash out!)
     fill = bpy.data.lights.new(name="InteriorFillArea", type='AREA')
-    fill.energy = 4.8
-    fill.size = 3.6
+    fill.energy = 4.2
+    fill.size = 3.4
     fill.color = (0.95, 0.96, 1.0)
     fill_obj = bpy.data.objects.new(name="InteriorFillArea", object_data=fill)
     bpy.context.collection.objects.link(fill_obj)
     fill_obj.location = (floor_cx, floor_cy, room_h - 0.1)
 
-    # ----------------- 13. Hero 4K Architectural Camera -----------------
+    # ----------------- 12. Hero 4K Architectural Camera -----------------
     cam_data = bpy.data.cameras.new(name="Hero4KCamera")
-    cam_data.lens = 15.5
+    cam_data.lens = 15.0
     cam_obj = bpy.data.objects.new(name="Hero4KCamera", object_data=cam_data)
     bpy.context.collection.objects.link(cam_obj)
     
-    cam_obj.location = (0.50, -2.85, 1.55)
-    target = mathutils.Vector((-0.65, 0.9, 0.85))
+    cam_obj.location = (0.75, -3.35, 1.65)
+    target = mathutils.Vector((-0.90, 0.85, 0.95))
     direction = target - cam_obj.location
     rot_quat = direction.to_track_quat('-Z', 'Y')
     cam_obj.rotation_euler = rot_quat.to_euler()
     bpy.context.scene.camera = cam_obj
 
-    print("Master 4K Architectural Scene V9 successfully built!")
+    print("Master 4K Architectural Perfection Scene V10 successfully built!")
 
 build_master_scene()
